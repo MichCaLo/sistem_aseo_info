@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calendario de Aseo Escolar / Laboral</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --success: #16a34a;
+      --bg-card: #ffffff;
+      --bg-page: #f8fafc;
+      --text: #1e293b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-page);
+      color: var(--text);
+      padding: 16px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 1.5rem;
+    }
+
+    /* Grid del Calendario (Lunes a Viernes) */
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    /* Ficha / Tarjeta */
+    .card {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 110px;
+      border-left: 6px solid #cbd5e1;
+    }
+
+    .card:active {
+      transform: scale(0.98);
+    }
+
+    .card.completed {
+      border-left-color: var(--success);
+      background-color: #f0fdf4;
+    }
+
+    .card-day {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text);
+    }
+
+    .card-group {
+      font-size: 0.9rem;
+      margin-top: 4px;
+      color: #64748b;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 8px;
+      font-size: 0.75rem;
+      border-radius: 20px;
+      font-weight: 600;
+      width: fit-content;
+    }
+
+    .badge-pending {
+      background-color: #f1f5f9;
+      color: #475569;
+    }
+
+    .badge-completed {
+      background-color: #dcfce7;
+      color: #15803d;
+    }
+
+    /* Modal Emergente para Móviles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 1000;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-content {
+      background: white;
+      width: 100%;
+      max-width: 420px;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      transform: translateY(20px);
+      transition: transform 0.2s ease;
+    }
+
+    .modal-overlay.active .modal-content {
+      transform: translateY(0);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .close-btn {
+      background: #f1f5f9;
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+
+    .modal-body p {
+      margin-bottom: 12px;
+      font-size: 0.95rem;
+    }
+
+    .status-box {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .status-completed {
+      background-color: #dcfce7;
+      color: #166534;
+    }
+
+    .status-pending {
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+
+    .checklist {
+      list-style: none;
+      margin-top: 8px;
+    }
+
+    .checklist li {
+      padding: 6px 0;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Control de Aseo (Lunes a Viernes)</h1>
+
+  <!-- Contenedor del Calendario -->
+  <div class="calendar-grid" id="calendarGrid"></div>
+
+  <!-- Modal Detalle para Celular -->
+  <div class="modal-overlay" id="detailModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title" id="modalDay">Día</div>
+        <button class="close-btn" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="modalStatus" class="status-box"></div>
+        <p><strong>Grupo Asignado:</strong> <span id="modalGroup"></span></p>
+        <p><strong>Responsable:</strong> <span id="modalLeader"></span></p>
+        <p><strong>Tareas asignadas:</strong></p>
+        <ul class="checklist" id="modalTasks"></ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Datos del calendario de Lunes a Viernes
+    const scheduleData = [
+      {
+        id: 1,
+        day: "Lunes",
+        group: "Grupo A",
+        leader: "María López",
+        completed: true,
+        completedAt: "12:30 PM",
+        tasks: ["Barror el aula", "Limpiar pizarra", "Vaciar papeleras"]
+      },
+      {
+        id: 2,
+        day: "Martes",
+        group: "Grupo B",
+        leader: "Carlos Gómez",
+        completed: false,
+        tasks: ["Barror el aula", "Ordenar escritorios", "Vaciar papeleras"]
+      },
+      {
+        id: 3,
+        day: "Miércoles",
+        group: "Grupo C",
+        leader: "Ana Martínez",
+        completed: false,
+        tasks: ["Barror el aula", "Limpiar ventanas", "Vaciar papeleras"]
+      },
+      {
+        id: 4,
+        day: "Jueves",
+        group: "Grupo D",
+        leader: "David Rodríguez",
+        completed: false,
+        tasks: ["Barror el aula", "Limpiar pizarra", "Desinfectar mesas"]
+      },
+      {
+        id: 5,
+        day: "Viernes",
+        group: "Grupo E",
+        leader: "Elena Fernández",
+        completed: false,
+        tasks: ["Aseo general", "Vaciar papeleras", "Organizar material"]
+      }
+    ];
+
+    // Renderizar tarjetas
+    const grid = document.getElementById('calendarGrid');
+
+    scheduleData.forEach(item => {
+      const card = document.createElement('div');
+      card.className = `card ${item.completed ? 'completed' : ''}`;
+      card.onclick = () => openModal(item);
+
+      card.innerHTML = `
+        <div>
+          <div class="card-day">${item.day}</div>
+          <div class="card-group">${item.group}</div>
+        </div>
+        <span class="badge ${item.completed ? 'badge-completed' : 'badge-pending'}">
+          ${item.completed ? '✓ Realizado' : 'Pendiente'}
+        </span>
+      `;
+      grid.appendChild(card);
+    });
+
+    // Control de Modal
+    const modal = document.getElementById('detailModal');
+
+    function openModal(data) {
+      document.getElementById('modalDay').textContent = data.day;
+      document.getElementById('modalGroup').textContent = data.group;
+      document.getElementById('modalLeader').textContent = data.leader;
+
+      const statusBox = document.getElementById('modalStatus');
+      if (data.completed) {
+        statusBox.className = "status-box status-completed";
+        statusBox.textContent = `✓ Aseo Completado (${data.completedAt})`;
+      } else {
+        statusBox.className = "status-box status-pending";
+        statusBox.textContent = "⏳ Pendiente de Realización";
+      }
+
+      const tasksList = document.getElementById('modalTasks');
+      tasksList.innerHTML = data.tasks.map(t => `<li>• ${t}</li>`).join('');
+
+      modal.classList.add('active');
+    }
+
+    function closeModal() {
+      modal.classList.remove('active');
+    }
+
+    // Cerrar al tocar fuera del modal
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+  </script>
+
+</body>
+</html>
