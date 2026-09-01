@@ -948,7 +948,20 @@ class SemedApp {
 
   async aprobarReporte(id){
     try{
+      const reporte = this.state.reportes.find(r => r.id === id);
       await updateDoc(doc(this.db, 'reportes', id), { estado: 'aprobado' });
+
+      // Si el reporte aprobado es del grupo actualmente en turno,
+      // avanzamos automáticamente al siguiente grupo (orden alfabético, circular).
+      const turnoActualId = this.state.ajustes?.turno_actual;
+      if(reporte && reporte.grupo_id === turnoActualId && this.state.grupos.length){
+        const idx = this.state.grupos.findIndex(g => g.id === turnoActualId);
+        const siguiente = this.state.grupos[(idx + 1) % this.state.grupos.length];
+        if(siguiente){
+          await setDoc(doc(this.db, 'config', 'ajustes_admin'), { turno_actual: siguiente.id }, { merge:true });
+        }
+      }
+
       this.toast('Reporte aprobado.');
     }catch(e){ this.toast('Error: ' + e.message, true); }
   }
